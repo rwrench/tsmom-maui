@@ -1,0 +1,5 @@
+<Solution>
+  <Project Path="../TSMOM.Core/TSMOM.Core.csproj" />
+  <Project Path="../TSMOM.Maui.Tests/TSMOM.Maui.Tests.csproj" />
+  <Project Path="TSMOM.Maui.csproj" />
+</Solution>
