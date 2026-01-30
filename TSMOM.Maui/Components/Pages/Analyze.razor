@@ -20,6 +20,12 @@
                     <input type="date" class="form-control" id="endDate" @bind="endDate" disabled="@(currentStep > 1)" />
                 </div>
             </div>
+            @if (currentStep > 1)
+            {
+                <button type="button" class="btn btn-outline-secondary btn-sm" @onclick="EditDates">
+                    Edit Dates
+                </button>
+            }
         </div>
     </div>
 </div>
@@ -27,48 +33,113 @@
 @* Step 2: Stock to Buy *@
 <div class="mb-4">
     <div class="card @(currentStep >= 1 ? "" : "text-muted")">
-        <div class="card-header">Step 2: Enter Stock to Buy</div>
+        <div class="card-header">Step 2: Find Best Stock to Buy</div>
         <div class="card-body">
-            <EditForm Model="@this" OnValidSubmit="ValidateBuyStockAsync">
-                <div class="mb-3">
-                    <label for="buyTicker" class="form-label">Ticker Symbol</label>
-                    <div class="input-group">
-                        <input type="text" class="form-control" id="buyTicker"
-                               @bind="buyTicker" @bind:event="oninput"
-                               placeholder="e.g. AAPL"
-                               disabled="@(currentStep > 2 || isLoading)" />
-                        <button type="submit" class="btn btn-primary"
-                                disabled="@(string.IsNullOrWhiteSpace(buyTicker) || isLoading || currentStep > 2)">
-                            @if (isLoading && currentStep == 2)
-                            {
-                                <span class="spinner-border spinner-border-sm me-2" role="status"></span>
-                            }
-                            Validate
-                        </button>
-                    </div>
-                </div>
-            </EditForm>
-
-            @if (buyResult != null)
-            {
-                @if (buyResult.Error != null)
+            <div class="mb-3">
+                <label for="buyCandidates" class="form-label">Candidate Tickers (comma or newline separated)</label>
+                <textarea class="form-control" id="buyCandidates" rows="3"
+                          @bind="buyCandidatesInput"
+                          placeholder="AAPL, MSFT, GOOGL, NVDA"
+                          disabled="@(currentStep > 2 || isLoading)"></textarea>
+            </div>
+            <button type="button" class="btn btn-primary" @onclick="FindBestBuyAsync"
+                    disabled="@(string.IsNullOrWhiteSpace(buyCandidatesInput) || isLoading || currentStep > 2)">
+                @if (isLoading && currentStep == 2)
                 {
-                    <div class="alert alert-danger mb-0">@buyResult.Error</div>
+                    <span class="spinner-border spinner-border-sm me-2" role="status"></span>
                 }
-                else if (!buyResult.IsBuyCandidate)
+                Find Best Performer
+            </button>
+            @if (currentStep > 2)
+            {
+                <button type="button" class="btn btn-outline-secondary ms-2" @onclick="EditBuyCandidates">
+                    Edit
+                </button>
+            }
+
+            @if (buyCandidatesResult != null)
+            {
+                @if (!buyCandidatesResult.Results.Any(r => r.Error == null))
                 {
-                    <div class="alert alert-warning mb-0">
-                        <strong>@buyResult.Ticker</strong> has negative momentum (@buyResult.Momentum?.ToString("F2")) - not a buy candidate.
-                        <br/>Try another ticker.
+                    <div class="alert alert-danger mt-3">
+                        No valid stock data found for the entered tickers:
+                        <ul class="mb-0 mt-2">
+                            @foreach (var result in buyCandidatesResult.Results)
+                            {
+                                <li><strong>@result.Ticker</strong>: @result.Error</li>
+                            }
+                        </ul>
                     </div>
+                    <button class="btn btn-outline-warning mt-2" @onclick="RetryFailedBuyCandidatesAsync" disabled="@isLoading">
+                        @if (isLoading)
+                        {
+                            <span class="spinner-border spinner-border-sm me-2" role="status"></span>
+                        }
+                        Retry All
+                    </button>
+                }
+                else if (buyCandidatesResult.BestBuy == null)
+                {
+                    <div class="alert alert-warning mt-3 mb-0">No stocks with positive momentum found.</div>
                 }
                 else
                 {
-                    <div class="alert alert-success mb-0">
-                        <strong>@buyResult.Ticker</strong> - Good buy candidate!
-                        <br/>Momentum: <strong>+@buyResult.Momentum?.ToString("F2")</strong> (@buyResult.PercentChange?.ToString("F2")%)
-                        <br/>Price: $@buyResult.StartPrice?.ToString("F2") → $@buyResult.EndPrice?.ToString("F2")
+                    var bestBuyResult = buyCandidatesResult.Results.First(r => r.Ticker == buyCandidatesResult.BestBuy);
+                    <div class="alert alert-success mt-3">
+                        <strong>Best Performer: @bestBuyResult.Ticker</strong>
+                        <br/>Momentum: <strong>@(bestBuyResult.Momentum >= 0 ? "+" : "")@bestBuyResult.Momentum?.ToString("F2")</strong> (@bestBuyResult.PercentChange?.ToString("F2")%)
+                        <br/>Price: $@bestBuyResult.StartPrice?.ToString("F2") → $@bestBuyResult.EndPrice?.ToString("F2")
                     </div>
+
+                    <table class="table table-sm table-striped">
+                        <thead>
+                            <tr>
+                                <th>Ticker</th>
+                                <th>Momentum</th>
+                                <th>% Change</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var result in buyCandidatesResult.Results.OrderByDescending(r => r.PercentChange ?? double.MinValue))
+                            {
+                                var isBestBuy = result.Ticker == buyCandidatesResult.BestBuy;
+                                <tr class="@(isBestBuy ? "table-success" : (result.Error != null ? "table-danger" : ""))">
+                                    <td><strong>@result.Ticker</strong></td>
+                                    @if (result.Error != null)
+                                    {
+                                        <td colspan="3" class="text-danger">@result.Error</td>
+                                    }
+                                    else
+                                    {
+                                        <td class="@(result.Momentum >= 0 ? "text-success" : "text-danger")">
+                                            @(result.Momentum >= 0 ? "+" : "")@result.Momentum?.ToString("F2")
+                                        </td>
+                                        <td class="@(result.PercentChange >= 0 ? "text-success" : "text-danger")">
+                                            @(result.PercentChange >= 0 ? "+" : "")@result.PercentChange?.ToString("F2")%
+                                        </td>
+                                        <td>
+                                            @if (isBestBuy)
+                                            {
+                                                <span class="badge bg-success">Best Buy</span>
+                                            }
+                                        </td>
+                                    }
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+
+                    @if (buyCandidatesResult.Results.Any(r => r.Error != null))
+                    {
+                        <button class="btn btn-outline-warning btn-sm" @onclick="RetryFailedBuyCandidatesAsync" disabled="@isLoading">
+                            @if (isLoading)
+                            {
+                                <span class="spinner-border spinner-border-sm me-2" role="status"></span>
+                            }
+                            Retry Failed (@buyCandidatesResult.Results.Count(r => r.Error != null))
+                        </button>
+                    }
                 }
             }
         </div>
@@ -82,22 +153,20 @@
         <div class="card">
             <div class="card-header">Step 3: Analyze Portfolio for Sell Candidate</div>
             <div class="card-body">
-                <EditForm Model="@this" OnValidSubmit="AnalyzePortfolioAsync">
-                    <div class="mb-3">
-                        <label for="tickers" class="form-label">Portfolio Tickers (comma or newline separated)</label>
-                        <textarea class="form-control" id="tickers" rows="4"
-                                  @bind="tickerInput"
-                                  placeholder="AAPL, MSFT, GOOGL, AMZN"
-                                  disabled="@isLoading"></textarea>
-                    </div>
-                    <button type="submit" class="btn btn-primary" disabled="@isLoading">
-                        @if (isLoading && currentStep == 3)
-                        {
-                            <span class="spinner-border spinner-border-sm me-2" role="status"></span>
-                        }
-                        Analyze
-                    </button>
-                </EditForm>
+                <div class="mb-3">
+                    <label for="tickers" class="form-label">Portfolio Tickers (comma or newline separated)</label>
+                    <textarea class="form-control" id="tickers" rows="4"
+                              @bind="tickerInput"
+                              placeholder="AAPL, MSFT, GOOGL, AMZN"
+                              disabled="@isLoading"></textarea>
+                </div>
+                <button type="button" class="btn btn-primary" @onclick="AnalyzePortfolioAsync" disabled="@isLoading">
+                    @if (isLoading && currentStep == 3)
+                    {
+                        <span class="spinner-border spinner-border-sm me-2" role="status"></span>
+                    }
+                    Analyze
+                </button>
             </div>
         </div>
     </div>
@@ -144,7 +213,7 @@
             </tr>
         </thead>
         <tbody>
-            @foreach (var result in portfolioResult.Results.OrderByDescending(r => r.Momentum ?? double.MinValue))
+            @foreach (var result in portfolioResult.Results.OrderByDescending(r => r.PercentChange ?? double.MinValue))
             {
                 var isSellCandidate = result.Ticker == portfolioResult.BestSell;
                 <tr class="@(isSellCandidate ? "table-warning" : "")">
@@ -185,37 +254,106 @@
 @code {
     private DateTime startDate = DateTime.Now.AddMonths(-3);
     private DateTime endDate = DateTime.Now;
-    private string buyTicker = "";
+    private string buyCandidatesInput = "";
     private string tickerInput = "";
     private bool isLoading = false;
     private string? errorMessage = null;
     private int currentStep = 1;
 
-    private MomentumResponse? buyResult = null;
+    private BatchMomentumResponse? buyCandidatesResult = null;
     private string? confirmedBuyTicker = null;
     private BatchMomentumResponse? portfolioResult = null;
 
-    private async Task ValidateBuyStockAsync()
+    private async Task FindBestBuyAsync()
     {
         isLoading = true;
         errorMessage = null;
-        buyResult = null;
+        buyCandidatesResult = null;
         currentStep = 2;
 
         try
         {
-            buyResult = await MomentumService.CalculateMomentumAsync(
-                buyTicker.Trim().ToUpper(), startDate, endDate);
+            var tickers = buyCandidatesInput
+                .Split(new[] { ',', '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries)
+                .Select(t => t.Trim().ToUpper())
+                .Where(t => !string.IsNullOrEmpty(t))
+                .ToList();
 
-            if (buyResult != null && buyResult.IsBuyCandidate)
+            if (tickers.Count == 0)
             {
-                confirmedBuyTicker = buyResult.Ticker;
+                errorMessage = "Please enter at least one ticker symbol.";
+                return;
+            }
+
+            buyCandidatesResult = await MomentumService.CalculateBatchMomentumAsync(
+                tickers, startDate, endDate);
+
+            if (buyCandidatesResult.BestBuy != null)
+            {
+                confirmedBuyTicker = buyCandidatesResult.BestBuy;
                 currentStep = 3;
             }
         }
         catch (Exception ex)
         {
             errorMessage = $"An error occurred: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task RetryFailedBuyCandidatesAsync()
+    {
+        if (buyCandidatesResult == null) return;
+
+        isLoading = true;
+        errorMessage = null;
+
+        try
+        {
+            var failedTickers = buyCandidatesResult.Results
+                .Where(r => r.Error != null)
+                .Select(r => r.Ticker)
+                .ToList();
+
+            if (failedTickers.Count == 0) return;
+
+            var retryResults = await MomentumService.CalculateBatchMomentumAsync(
+                failedTickers, startDate, endDate);
+
+            // Merge retry results with existing successful results
+            var successfulResults = buyCandidatesResult.Results
+                .Where(r => r.Error == null)
+                .ToList();
+            successfulResults.AddRange(retryResults.Results);
+
+            // Recalculate best buy/sell from merged results
+            var validResults = successfulResults.Where(r => r.Error == null && r.PercentChange.HasValue).ToList();
+            string? bestBuy = validResults.Any()
+                ? validResults.OrderByDescending(r => r.PercentChange).First().Ticker
+                : null;
+            string? bestSell = validResults.Any()
+                ? validResults.OrderBy(r => r.PercentChange).First().Ticker
+                : null;
+
+            buyCandidatesResult = new BatchMomentumResponse
+            {
+                Results = successfulResults,
+                BestBuy = bestBuy,
+                BestSell = bestSell
+            };
+
+            if (buyCandidatesResult.BestBuy != null)
+            {
+                confirmedBuyTicker = buyCandidatesResult.BestBuy;
+                currentStep = 3;
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Retry failed: {ex.Message}";
         }
         finally
         {
@@ -256,12 +394,30 @@
         }
     }
 
+    private void EditDates()
+    {
+        currentStep = 1;
+        buyCandidatesResult = null;
+        confirmedBuyTicker = null;
+        portfolioResult = null;
+        StateHasChanged();
+    }
+
+    private void EditBuyCandidates()
+    {
+        currentStep = 2;
+        buyCandidatesResult = null;
+        confirmedBuyTicker = null;
+        portfolioResult = null;
+        StateHasChanged();
+    }
+
     private void Reset()
     {
         currentStep = 1;
-        buyTicker = "";
+        buyCandidatesInput = "";
         tickerInput = "";
-        buyResult = null;
+        buyCandidatesResult = null;
         confirmedBuyTicker = null;
         portfolioResult = null;
         errorMessage = null;

@@ -126,7 +126,7 @@ public class MomentumServiceTests
     }
 
     [Fact]
-    public async Task CalculateBatchMomentumAsync_ReturnsBestSellAsLowestMomentum()
+    public async Task CalculateBatchMomentumAsync_ReturnsBestBuyAndBestSell()
     {
         // Arrange
         _mockProvider
@@ -161,11 +161,12 @@ public class MomentumServiceTests
 
         // Assert
         Assert.Equal(3, result.Results.Count);
+        Assert.Equal("AAPL", result.BestBuy);  // Highest momentum (+20)
         Assert.Equal("MSFT", result.BestSell); // Lowest momentum (-10)
     }
 
     [Fact]
-    public async Task CalculateBatchMomentumAsync_WithAllErrors_ReturnsNullBestSell()
+    public async Task CalculateBatchMomentumAsync_WithAllErrors_ReturnsNullBestBuyAndBestSell()
     {
         // Arrange
         _mockProvider
@@ -179,6 +180,7 @@ public class MomentumServiceTests
             new DateTime(2024, 1, 31));
 
         // Assert
+        Assert.Null(result.BestBuy);
         Assert.Null(result.BestSell);
         Assert.All(result.Results, r => Assert.NotNull(r.Error));
     }
