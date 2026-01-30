@@ -14,6 +14,7 @@ public class MomentumResponse
 public class BatchMomentumResponse
 {
     public List<MomentumResponse> Results { get; set; } = new();
+    public string? BestBuy { get; set; }
     public string? BestSell { get; set; }
 }
 

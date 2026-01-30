@@ -55,18 +55,40 @@ public class MomentumService
     public async Task<BatchMomentumResponse> CalculateBatchMomentumAsync(
         List<string> tickers, DateTime startDate, DateTime endDate)
     {
-        var tasks = tickers.Select(t => CalculateMomentumAsync(t, startDate, endDate));
+        // Limit concurrent requests to avoid API throttling
+        const int maxConcurrency = 3;
+        using var semaphore = new SemaphoreSlim(maxConcurrency);
+
+        var tasks = tickers.Select(async t =>
+        {
+            await semaphore.WaitAsync();
+            try
+            {
+                return await CalculateMomentumAsync(t, startDate, endDate);
+            }
+            finally
+            {
+                semaphore.Release();
+            }
+        });
+
         var results = await Task.WhenAll(tasks);
 
         var validResults = results
             .Where(r => r.Error == null && r.Momentum.HasValue)
             .ToList();
 
+        string? bestBuy = null;
         string? bestSell = null;
         if (validResults.Any())
         {
+            bestBuy = validResults
+                .OrderByDescending(r => r.PercentChange)
+                .First()
+                .Ticker;
+
             bestSell = validResults
-                .OrderBy(r => r.Momentum)
+                .OrderBy(r => r.PercentChange)
                 .First()
                 .Ticker;
         }
@@ -74,6 +96,7 @@ public class MomentumService
         return new BatchMomentumResponse
         {
             Results = results.ToList(),
+            BestBuy = bestBuy,
             BestSell = bestSell
         };
     }
