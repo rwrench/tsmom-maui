@@ -8,6 +8,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="bunit" Version="1.36.0" />
     <PackageReference Include="coverlet.collector" Version="6.0.4" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
     <PackageReference Include="Moq" Version="4.20.72" />
@@ -21,6 +22,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\TSMOM.Core\TSMOM.Core.csproj" />
+    <ProjectReference Include="..\TSMOM.Components\TSMOM.Components.csproj" />
   </ItemGroup>
 
 </Project>

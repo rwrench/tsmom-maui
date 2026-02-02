@@ -18,6 +18,8 @@ tsmom-maui/
 │   ├── Components/
 │   │   ├── Layout/           # NavMenu, MainLayout
 │   │   └── Pages/            # Razor pages (Analyze.razor)
+│   ├── docs/
+│   │   └── ui-workflow.md    # UI behavior specification
 │   ├── MauiProgram.cs        # DI registration
 │   └── TSMOM.Maui.sln        # Solution file
 ├── TSMOM.Core/
@@ -73,6 +75,9 @@ dotnet build TSMOM.Maui/TSMOM.Maui.csproj -f net8.0-android
 1. User selects date range
 2. User enters stock to buy → validates positive momentum
 3. User enters portfolio tickers → finds sell candidate (lowest momentum)
+   - Buy ticker is automatically excluded from sell candidates
+
+See [TSMOM.Maui/docs/ui-workflow.md](TSMOM.Maui/docs/ui-workflow.md) for detailed UI behavior specification.
 
 ## Dependencies
 

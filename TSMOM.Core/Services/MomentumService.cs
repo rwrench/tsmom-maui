@@ -82,10 +82,15 @@ public class MomentumService
         string? bestSell = null;
         if (validResults.Any())
         {
-            bestBuy = validResults
-                .OrderByDescending(r => r.PercentChange)
-                .First()
-                .Ticker;
+            // BestBuy must have positive momentum per workflow spec
+            var positiveMomentumStocks = validResults.Where(r => r.PercentChange > 0).ToList();
+            if (positiveMomentumStocks.Any())
+            {
+                bestBuy = positiveMomentumStocks
+                    .OrderByDescending(r => r.PercentChange)
+                    .First()
+                    .Ticker;
+            }
 
             bestSell = validResults
                 .OrderBy(r => r.PercentChange)
