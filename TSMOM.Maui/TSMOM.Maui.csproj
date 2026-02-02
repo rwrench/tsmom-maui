@@ -65,6 +65,11 @@
 
     <ItemGroup>
       <ProjectReference Include="..\TSMOM.Core\TSMOM.Core.csproj" />
+      <ProjectReference Include="..\TSMOM.Components\TSMOM.Components.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <None Include="docs\**" />
     </ItemGroup>
 
 </Project>

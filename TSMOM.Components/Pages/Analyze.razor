@@ -1,7 +1,5 @@
 @page "/"
 @page "/analyze"
-@using TSMOM.Core.Models
-@using TSMOM.Core.Services
 @inject MomentumService MomentumService
 
 <h1>Momentum Analysis</h1>
@@ -40,7 +38,6 @@
                 <label for="buyCandidates" class="form-label">Candidate Tickers (comma or newline separated)</label>
                 <textarea class="form-control" id="buyCandidates" rows="3"
                           @bind="buyCandidatesInput"
-                          @bind:event="oninput"
                           placeholder="AAPL, MSFT, GOOGL, NVDA"
                           disabled="@(currentStep > 2 || isLoading)"></textarea>
             </div>
@@ -159,12 +156,10 @@
                     <label for="tickers" class="form-label">Portfolio Tickers (comma or newline separated)</label>
                     <textarea class="form-control" id="tickers" rows="4"
                               @bind="tickerInput"
-                              @bind:event="oninput"
                               placeholder="AAPL, MSFT, GOOGL, AMZN"
                               disabled="@isLoading"></textarea>
                 </div>
-                <button type="button" class="btn btn-primary" @onclick="AnalyzePortfolioAsync"
-                        disabled="@(string.IsNullOrWhiteSpace(tickerInput) || isLoading)">
+                <button type="button" class="btn btn-primary" @onclick="AnalyzePortfolioAsync" disabled="@isLoading">
                     @if (isLoading && currentStep == 3)
                     {
                         <span class="spinner-border spinner-border-sm me-2" role="status"></span>
